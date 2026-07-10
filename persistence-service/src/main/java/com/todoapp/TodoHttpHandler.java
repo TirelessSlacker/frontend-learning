@@ -1,5 +1,7 @@
 package com.todoapp;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 
@@ -13,7 +15,7 @@ import java.util.Optional;
 /**
  * Translates HTTP requests into TodoRepository calls and back into JSON
  * responses. This is the only class that knows about HTTP - everything below
- * it (TodoRepository, Todo, Json) has no idea it's being used over a network.
+ * it (TodoRepository, Todo) has no idea it's being used over a network.
  *
  * Routes:
  *   GET    /todos          -> list all todos
@@ -22,6 +24,8 @@ import java.util.Optional;
  *   DELETE /todos/{id}     -> delete a todo
  */
 public final class TodoHttpHandler implements HttpHandler {
+
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private final TodoRepository repository;
 
@@ -86,8 +90,8 @@ public final class TodoHttpHandler implements HttpHandler {
     }
 
     private void handleList(HttpExchange exchange) throws IOException {
-        List<Map<String, Object>> body = repository.findAll().stream().map(Todo::toMap).toList();
-        sendResponse(exchange, 200, Json.write(body));
+        List<Todo> body = repository.findAll();
+        sendResponse(exchange, 200, MAPPER.writeValueAsString(body));
     }
 
     private void handleCreate(HttpExchange exchange) throws IOException {
@@ -98,7 +102,7 @@ public final class TodoHttpHandler implements HttpHandler {
             return;
         }
         Todo created = repository.insert(text.strip());
-        sendResponse(exchange, 201, Json.write(created.toMap()));
+        sendResponse(exchange, 201, MAPPER.writeValueAsString(created));
     }
 
     private void handleUpdate(HttpExchange exchange, long id) throws IOException {
@@ -111,7 +115,7 @@ public final class TodoHttpHandler implements HttpHandler {
             sendResponse(exchange, 404, error("Todo not found"));
             return;
         }
-        sendResponse(exchange, 200, Json.write(updated.get().toMap()));
+        sendResponse(exchange, 200, MAPPER.writeValueAsString(updated.get()));
     }
 
     private void handleDelete(HttpExchange exchange, long id) throws IOException {
@@ -123,17 +127,15 @@ public final class TodoHttpHandler implements HttpHandler {
         sendResponse(exchange, 204, "");
     }
 
-    @SuppressWarnings("unchecked")
     private Map<String, Object> readJsonBody(HttpExchange exchange) throws IOException {
         byte[] raw = exchange.getRequestBody().readAllBytes();
         String content = new String(raw, StandardCharsets.UTF_8);
         if (content.isBlank()) return Map.of();
-        Object parsed = Json.parse(content);
-        return parsed instanceof Map ? (Map<String, Object>) parsed : Map.of();
+        return MAPPER.readValue(content, new TypeReference<Map<String, Object>>() {});
     }
 
-    private String error(String message) {
-        return Json.write(Map.of("error", message));
+    private String error(String message) throws IOException {
+        return MAPPER.writeValueAsString(Map.of("error", message));
     }
 
     private void sendResponse(HttpExchange exchange, int status, String body) throws IOException {

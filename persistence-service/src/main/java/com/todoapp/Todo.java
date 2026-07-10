@@ -7,9 +7,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
-
 /**
  * The core entity this whole sample project is about, now mapped directly
  * onto the "todos" table via JPA annotations instead of being hand-built
@@ -71,15 +68,5 @@ public class Todo {
 
     public long getCreatedAt() {
         return createdAt;
-    }
-
-    /** Converts this Todo into a plain Map so Json.write() can serialize it for an HTTP response. */
-    public Map<String, Object> toMap() {
-        Map<String, Object> map = new LinkedHashMap<>();
-        map.put("id", id);
-        map.put("text", text);
-        map.put("completed", completed);
-        map.put("createdAt", createdAt);
-        return map;
     }
 }
