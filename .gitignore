@@ -1,0 +1,12 @@
+# Node (server + frontend)
+node_modules/
+dist/
+.env
+npm-debug.log*
+
+# Java (persistence-service)
+persistence-service/target/
+persistence-service/data/
+
+# OS
+.DS_Store

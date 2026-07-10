@@ -1,0 +1,259 @@
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap");
+
+:root {
+  --bg: #f1f3f5;
+  --surface: #ffffff;
+  --ink: #1c2530;
+  --ink-soft: #5b6472;
+  --border: #dde1e5;
+  --accent: #e2a63c;
+  --accent-deep: #b9801f;
+  --complete: #1f6f63;
+  --danger: #c1483b;
+  --radius: 10px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "IBM Plex Sans", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: inherit;
+}
+
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--accent-deep);
+  outline-offset: 2px;
+}
+
+.page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 64px 20px 40px;
+}
+
+.page-header {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.page-header h1 {
+  font-family: "Fraunces", Georgia, serif;
+  font-weight: 600;
+  font-size: 2.75rem;
+  margin: 0 0 8px;
+  letter-spacing: -0.01em;
+}
+
+.subtitle {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+}
+
+.card {
+  width: 100%;
+  max-width: 520px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px;
+  box-shadow: 0 1px 2px rgba(28, 37, 48, 0.04), 0 8px 24px rgba(28, 37, 48, 0.06);
+}
+
+.todo-form {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.todo-form input {
+  flex: 1;
+  padding: 11px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.98rem;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.todo-form input::placeholder {
+  color: #9aa3ad;
+}
+
+.todo-form button {
+  padding: 11px 18px;
+  border: none;
+  border-radius: 8px;
+  background: var(--ink);
+  color: white;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.todo-form button:hover:not(:disabled) {
+  background: #333e4c;
+}
+
+.todo-form button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.form-error {
+  color: var(--danger);
+  font-size: 0.85rem;
+  margin: 6px 0 0;
+}
+
+.status-line {
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+}
+
+.status-error {
+  color: var(--danger);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.status-error button {
+  border: 1px solid var(--danger);
+  background: transparent;
+  color: var(--danger);
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.empty-state {
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+  padding: 20px 4px;
+  text-align: center;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+}
+
+.todo-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.todo-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 6px;
+  border-radius: 8px;
+  transition: background 0.12s ease;
+}
+
+.todo-item:hover {
+  background: var(--bg);
+}
+
+.todo-item .check {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  background: transparent;
+  color: white;
+  font-size: 0.7rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.todo-item.is-complete .check {
+  background: var(--complete);
+  border-color: var(--complete);
+}
+
+.todo-text {
+  flex: 1;
+  font-size: 0.98rem;
+  word-break: break-word;
+}
+
+.todo-item.is-complete .todo-text {
+  color: var(--ink-soft);
+  text-decoration: line-through;
+}
+
+.todo-item .delete {
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  cursor: pointer;
+  opacity: 0;
+  padding: 4px 6px;
+  border-radius: 6px;
+  transition: opacity 0.12s ease, color 0.12s ease;
+}
+
+.todo-item:hover .delete,
+.todo-item .delete:focus-visible {
+  opacity: 1;
+}
+
+.todo-item .delete:hover {
+  color: var(--danger);
+}
+
+.count-line {
+  margin: 16px 0 0;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  text-align: right;
+}
+
+@media (max-width: 480px) {
+  .page {
+    padding: 40px 14px 30px;
+  }
+  .page-header h1 {
+    font-size: 2.25rem;
+  }
+  .card {
+    padding: 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
+}
