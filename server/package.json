@@ -5,11 +5,16 @@
   "type": "module",
   "main": "src/index.js",
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "node --watch src/index.js"
+    "predev": "npm install --prefix ../frontend --no-audit --no-fund",
+    "dev": "NODE_ENV=development node --watch-path=src src/index.js",
+    "start": "NODE_ENV=production node src/index.js",
+    "build": "npm run build --prefix ../frontend"
   },
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "vite": "^5.4.0"
   }
 }

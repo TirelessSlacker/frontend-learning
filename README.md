@@ -5,22 +5,24 @@ React frontend, an Express.js API, and a persistence layer talk to each
 other** as three independent processes.
 
 ```
-┌─────────────────┐        ┌──────────────────┐        ┌───────────────────────┐
-│   frontend/      │  HTTP  │   server/         │  HTTP  │   persistence-service/ │
-│   React + Vite   │ ─────▶ │   Express.js      │ ─────▶ │   Java + JPA          │
-│   port 5173      │  /api  │   port 3001       │ /todos │   port 8080           │
-│                  │ ◀───── │                   │ ◀───── │                       │
-└─────────────────┘        └──────────────────┘        └───────────┬───────────┘
-                                                                    │ JPA (via Hibernate)
-                                                                    ▼
-                                                              H2 (embedded)
-                                                        data/tododb.mv.db file
+┌────────────────────────────────────┐        ┌───────────────────────┐
+│   server/ (Express, port 3001)      │  HTTP  │  persistence-service/  │
+│   • serves the React UI              │ /todos │  Java + JPA            │
+│     (Vite middleware in dev,         │───────▶│  port 8080             │
+│      prebuilt static files in prod)  │◀───────│                        │
+│   • handles all /api/... calls       │        └───────────┬────────────┘
+└───────────────▲──────────────────────┘                    │ JPA (via Hibernate)
+                 │ HTTP                                       ▼
+              browser                                   H2 (embedded)
+                                                    data/tododb.mv.db file
 ```
 
 Each layer only knows about its immediate neighbor:
 
 - **`frontend/`** — React UI. It only ever calls `/api/...`. It has no idea
-  Express or Java exist behind that path.
+  Express or Java exist behind that path, and it's never reached directly by
+  the browser — Express is the one serving it, whether that's Vite
+  transforming it on the fly in dev or a prebuilt bundle in production.
 - **`server/`** — Express.js. This is the API / business-logic layer: request
   validation, HTTP status codes, and a single client module
   (`src/services/persistenceClient.js`) that's the *only* place aware the
@@ -39,9 +41,14 @@ the actual data, often written in a different language.
 
 ## Running it
 
-Three terminals — start them in this order, since each one talks to the one
-before it. No database server to set up first: H2 runs embedded inside the
-persistence service.
+The browser only ever talks to Express, on `http://localhost:3001` — there's
+no separate frontend port to open. How Express gets the UI onto that port
+differs between development and production, so there are two workflows below.
+Either way, start `persistence-service` first: both workflows talk to it.
+
+### Running it in development
+
+Two terminals.
 
 **1. Persistence service (Java 17+ and Maven required)**
 
@@ -65,29 +72,56 @@ the `@Entity` mapping it's derived from).
 > H2 file? Set `DB_URL` / `DB_USER` / `DB_PASSWORD` env vars before
 > starting — see "Extending this sample" below.
 
-**2. Server (Node 18+)**
+**2. Server + UI (Node 18+)**
 
 ```bash
 cd server
 npm install
-npm start
-```
-
-You should see `server (Express) listening on http://localhost:3001`.
-
-**3. Frontend (Node 18+)**
-
-```bash
-cd frontend
-npm install
 npm run dev
 ```
 
-Open the URL Vite prints (usually `http://localhost:5173`).
+`npm run dev` first runs `predev`, which installs `frontend/`'s dependencies
+too — so these three commands are the entire setup on a fresh clone, with no
+separate `frontend/` install step and no third terminal. You should see
+`server (Express) listening on http://localhost:3001`.
 
-> Only `frontend/` and `server/` need `npm install`. `persistence-service/`
-> uses Maven (`mvn compile exec:java`) instead of `npm`/`javac` directly,
-> since it needs the H2 and Hibernate jars on its classpath.
+Open `http://localhost:3001`. Editing anything under `frontend/src` hot-reloads
+in the browser, because Express is running Vite in middleware mode inside the
+same process — there's no separate frontend dev server or port to reach
+directly.
+
+### Running it in production
+
+Build the frontend once, then run the server against that build — no Vite,
+no hot reload, no `frontend/node_modules` needed at runtime. This is the mode
+you'd actually deploy.
+
+```bash
+# Persistence service, same as dev
+cd persistence-service
+mvn compile exec:java
+```
+
+```bash
+# Build the frontend once
+cd frontend
+npm install
+npm run build              # writes frontend/dist
+
+# Run the server against the prebuilt bundle
+cd ../server
+npm install
+NODE_ENV=production npm start
+```
+
+Open `http://localhost:3001` — Express serves the static files in
+`frontend/dist` directly for everything except `/api/...`. If `frontend/dist`
+doesn't exist yet, `npm start` exits immediately with a message telling you
+to build first, instead of starting in a broken state.
+
+> `persistence-service/` uses Maven (`mvn compile exec:java`) instead of
+> `npm`/`javac` directly, since it needs the H2 and Hibernate jars on its
+> classpath.
 
 ## Why it's shaped this way
 
@@ -104,6 +138,11 @@ Open the URL Vite prints (usually `http://localhost:5173`).
   three separate deployable units (e.g. three containers), which is why
   they're three separate folders with their own dependency management here
   rather than one monorepo package.
+- **Single browser-facing origin.** Like a real deployment, the browser only
+  ever talks to Express. In dev that's Vite running in middleware mode inside
+  the same process (you still get hot reload); in production it's a prebuilt
+  static bundle. There's no second dev-only port or CORS story between
+  frontend and API to explain.
 
 ## API reference
 
@@ -170,8 +209,6 @@ Natural next steps if you want to keep learning from this:
   (Flyway or Liquibase) — the more common choice once a schema needs to
   evolve carefully in production.
 - Add authentication at the Express layer.
-- Add a build step so Express serves the built React app (`vite build`) as
-  static files, collapsing frontend + server into one deployable unit.
 - Add automated tests: unit tests for `TodoRepository` (H2 in particular
   makes this easy — point a test persistence unit at `jdbc:h2:mem:` for a
   disposable in-memory database per test run), integration tests for the
