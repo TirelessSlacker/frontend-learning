@@ -3,6 +3,7 @@ node_modules/
 dist/
 .env
 npm-debug.log*
+server/data/
 
 # Java (persistence-service)
 persistence-service/target/

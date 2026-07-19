@@ -1,10 +1,10 @@
 import { Router } from "express";
-import * as persistence from "../services/persistenceClient.js";
+import * as persistence from "../services/todoStore.js";
 
 // This layer is where request validation and business rules live - the
 // stuff you don't want scattered across the frontend or duplicated into the
-// persistence layer. The Java service doesn't know what a "blank todo" is;
-// that's a decision this app's API makes.
+// storage layer. todoStore doesn't know what a "blank todo" is; that's a
+// decision this app's API makes.
 
 const router = Router();
 

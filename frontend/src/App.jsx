@@ -46,7 +46,7 @@ export default function App() {
       <header className="page-header">
         <h1>Todo</h1>
         <p className="subtitle">
-          React&nbsp;→&nbsp;Express&nbsp;→&nbsp;Java, three small services talking over HTTP.
+          React&nbsp;→&nbsp;Express, with storage owned right inside the server.
         </p>
       </header>
 
