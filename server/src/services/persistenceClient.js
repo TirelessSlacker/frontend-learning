@@ -1,3 +1,9 @@
+// This file is no longer used by the main app — see todoStore.js, which
+// stores todos directly in an embedded SQLite database instead. This is
+// kept around as a reference for the earlier architecture, where Express
+// called out to the separate Java persistence-service over HTTP instead
+// of owning storage itself.
+//
 // This is the ONLY file that knows the persistence-service exists, or that
 // it happens to be written in Java, or that it happens to store data as a
 // JSON file. Everywhere else in the Express app just calls these functions
