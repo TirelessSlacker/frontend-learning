@@ -1,7 +1,7 @@
 {
   "name": "todo-server",
   "version": "1.0.0",
-  "description": "Express.js API layer - serves the React frontend and stores todos in an embedded SQLite database",
+  "description": "Express.js API layer - sits between the React frontend and the Java persistence-service",
   "type": "module",
   "main": "src/index.js",
   "scripts": {
@@ -11,7 +11,6 @@
     "build": "npm run build --prefix ../frontend"
   },
   "dependencies": {
-    "better-sqlite3": "^11.3.0",
     "cors": "^2.8.5",
     "express": "^4.19.2"
   },

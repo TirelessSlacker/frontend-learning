@@ -1,15 +1,12 @@
+// This file is no longer used by the main app — see persistenceClient.js,
+// which forwards these same calls over HTTP to the separate Java
+// persistence-service instead. This is kept around as a reference for the
+// embedded-SQLite architecture, where Express owned storage directly
+// instead of calling out to another process.
+//
 // This is the ONLY file that knows todos are stored in a local SQLite file
 // via better-sqlite3. Everywhere else in the Express app just calls these
 // functions and gets plain JavaScript objects back.
-//
-// Swap this file out (point it at Postgres, at a different embedded DB, at
-// an in-memory mock for tests) and nothing in routes/ would need to change.
-//
-// routes/todos.js imports this instead of persistenceClient.js now — that
-// file forwarded these same calls over HTTP to the separate Java
-// persistence-service. It's kept in the repo, unused, as a reference for
-// that earlier architecture; the database now lives inside this process
-// instead of a separate one.
 
 import Database from "better-sqlite3";
 import path from "node:path";
