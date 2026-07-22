@@ -106,6 +106,39 @@ Open `http://localhost:3001` — Express serves the static files in
 doesn't exist yet, `npm start` exits immediately with a message telling you
 to build first, instead of starting in a broken state.
 
+## Running the tests
+
+Both backend tiers have automated integration tests covering success and
+failure cases for every API call. Neither test suite touches the real
+`persistence-service/data/tododb.mv.db` file or requires the app itself to
+be running.
+
+```bash
+# persistence-service: JUnit 5, two tiers in one `mvn test` run
+cd persistence-service
+mvn test                                 # both tiers (requires Docker)
+mvn test -DexcludedGroups=testcontainers # fast tier only, no Docker needed
+```
+
+The fast tier runs `TodoRepository` and `TodoHttpHandler` against an
+in-memory H2 database configured with the same `PostgreSQLDialect` the app
+uses. The Testcontainers tier (tagged `testcontainers`) runs the same
+`TodoRepository` contract against a real, disposable Postgres container
+(destroyed after the run) to catch anything H2's Postgres-compatibility mode
+only approximates.
+
+```bash
+# server: Vitest + Supertest, downstream persistence-service calls stubbed
+cd server
+npm install
+npm test
+```
+
+`npm test` doesn't need `persistence-service` or Docker running at all — it
+spins up a lightweight in-memory HTTP stub standing in for
+`persistence-service` (see `server/test/support/stubPersistenceServer.js`)
+and points the app at it for the duration of the run.
+
 ## Why it's shaped this way
 
 - **Separation of concerns.** The React app never talks to the database
@@ -147,7 +180,11 @@ Express (`server/`), what the frontend calls:
   Spring Data — every method is a few lines you can read end to end.
 - H2 as the actual database — it runs embedded inside its own JVM and keeps
   its data in `persistence-service/data/tododb.mv.db`, so there's nothing
-  extra to install or start, unlike Postgres.
+  extra to install or start, unlike Postgres. It runs in H2's
+  Postgres-compatibility mode (`MODE=PostgreSQL` in the JDBC URL) under
+  Hibernate's `PostgreSQLDialect` — not H2's own dialect — so the SQL this
+  app generates matches what the test suite's Postgres-backed tier
+  (Testcontainers) exercises for real.
 
 Notice that `TodoHttpHandler.java` *still* hasn't changed, across four
 different storage decisions before this one (a JSON file → raw JDBC → JPA →
@@ -185,14 +222,12 @@ Natural next steps if you want to keep learning from this:
 - Add a second table with a relationship (e.g. `tags`) to see how that
   reshapes both `Todo.java`/`TodoRepository` and the Express-side client.
 - Add authentication at the Express layer.
-- Add automated tests: unit tests for `todoStore.js` (SQLite in particular
-  makes this easy — point it at `:memory:` for a disposable database per
-  test run), integration tests for the Express routes, and a way to run
-  `persistence-service` against a disposable H2/Postgres instance for its
-  own tests.
+- Add unit tests for `todoStore.js` (SQLite in particular makes this easy —
+  point it at `:memory:` for a disposable database per test run); both other
+  tiers already have automated tests (see "Running the tests" above).
 - If you want to keep exploring the Java side specifically,
   `persistence-service/` still has its own "Extending this sample"-style
-  options: swap H2 for Postgres by changing `pom.xml` and
-  `persistence.xml`, add a `@ManyToMany` relationship, or swap
-  `hibernate.hbm2ddl.auto=update` for a real migration tool (Flyway or
-  Liquibase).
+  options: swap H2 for a real Postgres instance in the running app too (not
+  just in tests) by changing `pom.xml` and `persistence.xml`, add a
+  `@ManyToMany` relationship, or swap `hibernate.hbm2ddl.auto=update` for a
+  real migration tool (Flyway or Liquibase).

@@ -20,10 +20,21 @@ public final class Database {
 
     public static EntityManagerFactory createEntityManagerFactory() {
         Map<String, String> overrides = new HashMap<>();
+        putIfSet(overrides, "jakarta.persistence.jdbc.driver", "DB_DRIVER");
         putIfSet(overrides, "jakarta.persistence.jdbc.url", "DB_URL");
         putIfSet(overrides, "jakarta.persistence.jdbc.user", "DB_USER");
         putIfSet(overrides, "jakarta.persistence.jdbc.password", "DB_PASSWORD");
 
+        return createEntityManagerFactory(overrides);
+    }
+
+    /**
+     * Lets callers supply connection overrides directly instead of via
+     * environment variables - used by tests to point the "todoPU" unit at
+     * an in-memory H2 database or a Testcontainers-managed Postgres
+     * instance, without touching process env vars.
+     */
+    public static EntityManagerFactory createEntityManagerFactory(Map<String, String> overrides) {
         return Persistence.createEntityManagerFactory("todoPU", overrides);
     }
 

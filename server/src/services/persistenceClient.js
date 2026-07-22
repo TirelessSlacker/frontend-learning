@@ -7,14 +7,19 @@
 // service, at an in-memory mock for tests) and nothing in routes/ would
 // need to change.
 
-const PERSISTENCE_URL = process.env.PERSISTENCE_URL || "http://localhost:8080";
+// Read lazily rather than captured at module load, so tests can point this
+// at a stub server via process.env.PERSISTENCE_URL regardless of when this
+// module was first imported.
+function persistenceUrl() {
+  return process.env.PERSISTENCE_URL || "http://localhost:8080";
+}
 
 /**
  * Wraps fetch with JSON handling and turns non-2xx responses into errors
  * that the route layer can catch and translate into HTTP responses.
  */
 async function request(path, options = {}) {
-  const res = await fetch(`${PERSISTENCE_URL}${path}`, {
+  const res = await fetch(`${persistenceUrl()}${path}`, {
     ...options,
     headers: { "Content-Type": "application/json", ...options.headers },
   });
