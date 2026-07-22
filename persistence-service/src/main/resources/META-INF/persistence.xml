@@ -26,11 +26,17 @@
               point this same code at a real Postgres instance later.
             -->
             <property name="jakarta.persistence.jdbc.driver" value="org.h2.Driver"/>
-            <property name="jakarta.persistence.jdbc.url" value="jdbc:h2:file:./data/tododb;AUTO_SERVER=TRUE"/>
+            <property name="jakarta.persistence.jdbc.url" value="jdbc:h2:file:./data/tododb;AUTO_SERVER=TRUE;MODE=PostgreSQL"/>
             <property name="jakarta.persistence.jdbc.user" value="sa"/>
             <property name="jakarta.persistence.jdbc.password" value=""/>
 
-            <property name="hibernate.dialect" value="org.hibernate.dialect.H2Dialect"/>
+            <!--
+              PostgreSQLDialect (not H2Dialect) so the app's generated SQL
+              matches what the test suite's Postgres-backed tiers exercise -
+              MODE=PostgreSQL above puts H2 itself into Postgres-compatible
+              SQL parsing so it understands that dialect's output.
+            -->
+            <property name="hibernate.dialect" value="org.hibernate.dialect.PostgreSQLDialect"/>
 
             <!--
               Creates/updates the schema to match the @Entity classes on

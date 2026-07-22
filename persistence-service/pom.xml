@@ -12,6 +12,10 @@
   <properties>
     <maven.compiler.release>21</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <junit.version>5.14.4</junit.version>
+    <testcontainers.version>2.0.5</testcontainers.version>
+    <!-- Pass -DexcludedGroups=testcontainers for a fast, Docker-free run. -->
+    <excludedGroups></excludedGroups>
   </properties>
 
   <!--
@@ -22,7 +26,32 @@
     that's the actual JPA specification interfaces (EntityManager, @Entity,
     etc); Hibernate is one implementation of it. There's still no Spring and
     no Spring Data - this project talks to EntityManager directly.
+
+    Test-scoped additions: JUnit 5, Testcontainers (spins up a real Postgres
+    container for the higher-fidelity integration tier), and the Postgres
+    JDBC driver those tests need to talk to it. The running app itself still
+    only uses H2 - Postgres only exists inside test runs, and only for as
+    long as each Testcontainers container is alive.
   -->
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.junit</groupId>
+        <artifactId>junit-bom</artifactId>
+        <version>${junit.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.testcontainers</groupId>
+        <artifactId>testcontainers-bom</artifactId>
+        <version>${testcontainers.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
   <dependencies>
     <dependency>
       <groupId>com.h2database</groupId>
@@ -39,6 +68,28 @@
       <artifactId>jackson-databind</artifactId>
       <version>2.17.0</version>
     </dependency>
+
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>testcontainers-junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>testcontainers-postgresql</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+      <version>42.7.13</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>
@@ -49,6 +100,14 @@
         <version>3.2.0</version>
         <configuration>
           <mainClass>com.todoapp.Main</mainClass>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.5.4</version>
+        <configuration>
+          <excludedGroups>${excludedGroups}</excludedGroups>
         </configuration>
       </plugin>
     </plugins>

@@ -8,13 +8,16 @@
     "predev": "npm install --prefix ../frontend --no-audit --no-fund",
     "dev": "NODE_ENV=development node --watch-path=src src/index.js",
     "start": "NODE_ENV=production node src/index.js",
-    "build": "npm run build --prefix ../frontend"
+    "build": "npm run build --prefix ../frontend",
+    "test": "vitest run"
   },
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.19.2"
   },
   "devDependencies": {
-    "vite": "^5.4.0"
+    "supertest": "^7.2.2",
+    "vite": "^5.4.0",
+    "vitest": "^4.1.10"
   }
 }
