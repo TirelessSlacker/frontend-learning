@@ -58,8 +58,8 @@ if (isProduction) {
 }
 
 // Centralized error handler: translates errors bubbled up from the
-// todo store (e.g. "Todo not found") into sensible HTTP responses, instead
-// of leaking stack traces to the client.
+// persistence client (e.g. "Todo not found", connection refused) into
+// sensible HTTP responses, instead of leaking stack traces to the client.
 app.use((err, req, res, next) => {
   console.error(err);
   const status = err.status && err.status >= 400 && err.status < 600 ? err.status : 502;
@@ -68,4 +68,5 @@ app.use((err, req, res, next) => {
 
 app.listen(PORT, () => {
   console.log(`server (Express) listening on http://localhost:${PORT}`);
+  console.log(`Forwarding persistence calls to ${process.env.PERSISTENCE_URL || "http://localhost:8080"}`);
 });

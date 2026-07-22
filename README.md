@@ -11,13 +11,13 @@ layer without touching the routes or business logic above it.**
 │     (Vite middleware in dev,                │
 │      prebuilt static files in prod)         │
 │   • handles all /api/... calls              │
-│   • src/services/todoStore.js owns storage  │
-│     directly via better-sqlite3             │
-└───────────────▲──────────────────────────────┘
-                 │ HTTP
-              browser
-
-                data/todos.db (SQLite file, inside server/)
+│   • src/services/persistenceClient.js       │
+│     forwards storage calls over HTTP        │
+└───────────────▲──────────────┬───────────────┘
+                 │ HTTP          │ HTTP
+              browser   persistence-service/ (Java, port 8080)
+                                 │
+                        tododb.mv.db (H2, embedded)
 ```
 
 Each layer only knows about its immediate neighbor:
@@ -27,37 +27,49 @@ Each layer only knows about its immediate neighbor:
   Express is the one serving it, whether that's Vite transforming it on the
   fly in dev or a prebuilt bundle in production.
 - **`server/`** — Express.js. This is the API / business-logic layer
-  (request validation, HTTP status codes) *and* the storage layer: a single
-  module (`src/services/todoStore.js`) is the *only* place that knows todos
-  live in a local SQLite file. Everywhere else just calls its functions
-  (`listTodos` / `createTodo` / `updateTodo` / `deleteTodo`) and gets back
-  plain JavaScript objects.
+  (request validation, HTTP status codes). A single module
+  (`src/services/persistenceClient.js`) is the *only* place that knows
+  storage lives in a separate Java process reachable over HTTP. Everywhere
+  else just calls its functions (`listTodos` / `createTodo` / `updateTodo` /
+  `deleteTodo`) and gets back plain JavaScript objects.
+- **`persistence-service/`** — a standalone Java process (JPA/Hibernate over
+  an embedded H2 database) that owns storage. It's a separate service, not
+  an Express dependency, so it needs to be started on its own before Express
+  (see below).
 
-Express used to call out to a separate Java service (`persistence-service/`)
-over HTTP for storage — that code is still in the repo (see below), just not
-used by the app anymore. Database is now in-process instead of a network
-call away.
+Express can also own storage directly in-process instead of calling out to
+a separate service — `src/services/todoStore.js` (SQLite via
+`better-sqlite3`) is still in the repo for that, just not used by the app
+right now (see below).
 
 ## Running it
 
-The browser only ever talks to Express, on `http://localhost:3001` — there's
-no separate frontend port to open, and no other process to start first.
+The browser only ever talks to Express, on `http://localhost:3001` — but
+Express itself talks to `persistence-service` on `http://localhost:8080`,
+so that has to be running first.
 
 ### Running it in development
 
 ```bash
+# Terminal 1 — start the persistence service (Java 21+ and Maven required)
+cd persistence-service
+mvn compile exec:java
+```
+
+You should see `persistence-service listening on http://localhost:8080`.
+
+```bash
+# Terminal 2 — start Express + the React dev server
 cd server
 npm install
 npm run dev
 ```
 
 `npm run dev` first runs `predev`, which installs `frontend/`'s dependencies
-too — so these three commands are the entire setup on a fresh clone, with no
-separate `frontend/` install step and no second terminal. You should see
-`server (Express) listening on http://localhost:3001`.
-
-On first run, `todoStore.js` creates `server/data/todos.db` (and the `todos`
-table inside it) automatically — nothing to install or start beforehand.
+too — so these two commands are the entire Express-side setup on a fresh
+clone. You should see `server (Express) listening on http://localhost:3001`
+followed by a line confirming it's forwarding persistence calls to
+`http://localhost:8080`.
 
 Open `http://localhost:3001`. Editing anything under `frontend/src` hot-reloads
 in the browser, because Express is running Vite in middleware mode inside the
@@ -68,7 +80,14 @@ directly.
 
 Build the frontend once, then run the server against that build — no Vite,
 no hot reload, no `frontend/node_modules` needed at runtime. This is the mode
-you'd actually deploy.
+you'd actually deploy. `persistence-service` still needs to be running
+separately.
+
+```bash
+# Start persistence-service (Java 21+ and Maven required)
+cd persistence-service
+mvn compile exec:java
+```
 
 ```bash
 # Build the frontend once
@@ -93,11 +112,12 @@ to build first, instead of starting in a broken state.
   layer directly — that's a smell in real projects (it leaks internal
   implementation details to the client and makes the API impossible to
   evolve independently). Every request goes through Express.
-- **Replaceable persistence.** Because `todoStore.js` is the only file that
-  knows todos are stored in SQLite, you could replace it with Postgres, a
-  call out to a separate service again, or an in-memory mock for tests, and
-  only that one file would change. `routes/todos.js` calls the same four
-  functions no matter what's underneath.
+- **Replaceable persistence.** Because `persistenceClient.js` is the only
+  file that knows storage happens over HTTP against a separate Java
+  service, you could replace it with `todoStore.js` (in-process SQLite),
+  Postgres, or an in-memory mock for tests, and only that one file would
+  change. `routes/todos.js` calls the same four functions no matter what's
+  underneath.
 - **Single browser-facing origin.** Like a real deployment, the browser only
   ever talks to Express. In dev that's Vite running in middleware mode inside
   the same process (you still get hot reload); in production it's a prebuilt
@@ -115,18 +135,11 @@ Express (`server/`), what the frontend calls:
 | PUT    | `/api/todos/:id` | `{ "text"?, "completed"? }`     | Partial update            |
 | DELETE | `/api/todos/:id` | —                               | Delete a todo             |
 
-## A note on `persistence-service/` (unused, kept for reference)
-
-This repo used to run storage as a separate Java process that Express called
-over HTTP (`src/services/persistenceClient.js`, also still in the repo but
-no longer imported by `routes/todos.js`). That Java service still exists at
-`persistence-service/` and still runs standalone if you want to poke at it —
-it just isn't part of the running app anymore.
+## `persistence-service/` in detail
 
 `persistence-service` avoids frameworks — no Spring, no Spring Data. It uses:
 - `com.sun.net.httpserver.HttpServer`, built into the JDK, for the HTTP layer
-- A ~150-line hand-rolled JSON reader/writer (`Json.java`) instead of a
-  library, for the HTTP request/response bodies
+- Jackson (`jackson-databind`) for JSON request/response bodies
 - Plain JPA (`jakarta.persistence`, implemented by Hibernate) for storage —
   `Todo` is an `@Entity` (see `Todo.java`), and `TodoRepository` talks to an
   `EntityManager` directly: `em.find`, `em.persist`, `em.remove`, and a JPQL
@@ -136,44 +149,47 @@ it just isn't part of the running app anymore.
   its data in `persistence-service/data/tododb.mv.db`, so there's nothing
   extra to install or start, unlike Postgres.
 
-To run it standalone (Java 17+ and Maven required):
-
-```bash
-cd persistence-service
-mvn compile exec:java
-```
-
-You should see `persistence-service listening on http://localhost:8080`. To
-actually wire it back up to Express, point `routes/todos.js` at
-`persistenceClient.js` instead of `todoStore.js`, and set `PERSISTENCE_URL`
-if it's not running on the default `http://localhost:8080`.
-
 Notice that `TodoHttpHandler.java` *still* hasn't changed, across four
 different storage decisions before this one (a JSON file → raw JDBC → JPA →
 swapping the database engine under JPA). It only ever depended on
 `TodoRepository`'s public methods (`findAll`, `insert`, `update`, `delete`),
 never on how they were implemented or which database sat underneath — the
-same lesson `todoStore.js` now demonstrates on the Express side.
+same lesson `persistenceClient.js` demonstrates on the Express side.
 
-Maven's job is fetching the two dependencies this needs: the JPA provider
-(`org.hibernate.orm:hibernate-core`) and the H2 database
-(`com.h2database:h2`). The connection and schema settings live in
-`src/main/resources/META-INF/persistence.xml` — the standard place JPA
-looks for them — with `Database.java` overriding the connection details
-from environment variables at runtime.
+Maven's job is fetching the three dependencies this needs: the JPA provider
+(`org.hibernate.orm:hibernate-core`), the H2 database (`com.h2database:h2`),
+and Jackson (`com.fasterxml.jackson.core:jackson-databind`). The connection
+and schema settings live in `src/main/resources/META-INF/persistence.xml` —
+the standard place JPA looks for them — with `Database.java` overriding the
+connection details from environment variables at runtime.
+
+## A note on `todoStore.js` / SQLite (unused, kept for reference)
+
+This repo has also run storage in-process, directly inside Express, via
+`src/services/todoStore.js` (SQLite through `better-sqlite3`, data in
+`server/data/todos.db`). That file is still in the repo but no longer
+imported by `routes/todos.js` — it's kept around as a reference for that
+architecture, where there's no separate persistence process to start at
+all.
+
+To wire it back up, point `routes/todos.js` at `todoStore.js` instead of
+`persistenceClient.js`, and add `better-sqlite3` back to `server/package.json`.
 
 ## Extending this sample
 
 Natural next steps if you want to keep learning from this:
-- Point `todoStore.js` at Postgres instead of SQLite (e.g. via `pg`), or
-  swap it back to calling `persistence-service` over HTTP, to see how little
-  of the rest of the app needs to change either way.
+- Point `persistenceClient.js` at Postgres instead of the Java service (e.g.
+  by writing a new module with the same four functions), or swap it back to
+  `todoStore.js` for in-process SQLite, to see how little of the rest of the
+  app needs to change either way.
 - Add a second table with a relationship (e.g. `tags`) to see how that
-  reshapes `todoStore.js`.
+  reshapes both `Todo.java`/`TodoRepository` and the Express-side client.
 - Add authentication at the Express layer.
 - Add automated tests: unit tests for `todoStore.js` (SQLite in particular
   makes this easy — point it at `:memory:` for a disposable database per
-  test run), integration tests for the Express routes.
+  test run), integration tests for the Express routes, and a way to run
+  `persistence-service` against a disposable H2/Postgres instance for its
+  own tests.
 - If you want to keep exploring the Java side specifically,
   `persistence-service/` still has its own "Extending this sample"-style
   options: swap H2 for Postgres by changing `pom.xml` and
